@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bullhorn CSM Risk Assessment</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --red: #C0392B; --red-bg: #FDECEA;
+    --amber: #D68910; --amber-bg: #FEF9EC;
+    --green: #1E8449; --green-bg: #EAF6EE;
+    --ink: #1A1A2E; --ink-mid: #4A4A6A; --ink-light: #9898B2;
+    --surface: #F5F5F8; --white: #FFFFFF;
+    --border: #E0E0EC;
+    --accent: #1B3A8C;
+    --font-display: 'DM Serif Display', Georgia, serif;
+    --font-body: 'DM Sans', system-ui, sans-serif;
+  }
+
+  body { font-family: var(--font-body); background: var(--surface); color: var(--ink); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+  @media print {
+    body { background: white; font-size: 12px; }
+    .no-print { display: none !important; }
+    .page-header { background: var(--accent) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .product-block { page-break-inside: avoid; border: 1px solid #ccc !important; }
+    input, textarea, select { border: 1px solid #ccc !important; }
+    .banner { display: none !important; }
+  }
+
+  .page-header { background: var(--accent); color: white; padding: 36px 48px 28px; position: relative; overflow: hidden; }
+  .page-header::after { content: ''; position: absolute; right: -40px; top: -40px; width: 220px; height: 220px; border-radius: 50%; background: rgba(255,255,255,0.06); }
+  .header-eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.7; margin-bottom: 8px; font-weight: 500; }
+  .header-title { font-family: var(--font-display); font-size: 28px; font-weight: 400; margin-bottom: 6px; }
+  .header-sub { font-size: 13px; opacity: 0.75; }
+
+  /* ─── SETUP BANNER ─── */
+  .banner {
+    background: #FFF8E7; border: 1px solid #F0C040; border-radius: 8px;
+    padding: 14px 18px; margin: 20px 0; font-size: 13px; color: #7A5A00;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .banner-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .banner code { background: rgba(0,0,0,0.07); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+  .banner a { color: #1B3A8C; }
+
+  /* ─── LOADING STATE ─── */
+  .load-state { text-align: center; padding: 24px; color: var(--ink-light); font-size: 13px; }
+  .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .form-body { max-width: 860px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 28px; }
+  .meta-grid .full { grid-column: 1 / -1; }
+
+  .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-light); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-top: 32px; }
+  .section-label:first-child { margin-top: 0; }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 12px; font-weight: 500; color: var(--ink-mid); }
+  .field input, .field textarea, .field select {
+    font-family: var(--font-body); font-size: 13px; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 10px; width: 100%; transition: border-color 0.15s; resize: vertical;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: var(--accent); background: white; }
+  .field textarea { min-height: 72px; }
+  .field textarea.tall { min-height: 100px; }
+  .field input[readonly] { background: #EEEEF5; color: var(--ink-mid); cursor: default; }
+
+  /* ─── RAG ─── */
+  .rag-field { display: flex; flex-direction: column; gap: 5px; }
+  .rag-field label { font-size: 12px; font-weight: 500; color: var(--ink-mid); }
+  .rag-options { display: flex; gap: 8px; flex-wrap: wrap; }
+  .rag-option input[type="radio"] { display: none; }
+  .rag-option label { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 500; border: 1.5px solid transparent; transition: all 0.15s; }
+  .rag-option.red label   { border-color: var(--red);   color: var(--red);   background: var(--red-bg); }
+  .rag-option.amber label { border-color: var(--amber); color: var(--amber); background: var(--amber-bg); }
+  .rag-option.green label { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+  .rag-option input:checked + label { font-weight: 600; box-shadow: 0 0 0 2px currentColor; }
+  .rag-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ─── PRODUCT BLOCKS ─── */
+  .product-block { background: var(--white); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 20px; overflow: hidden; }
+  .product-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: var(--surface); border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
+  .product-header-left { display: flex; align-items: center; gap: 12px; }
+  .product-name { font-size: 15px; font-weight: 600; color: var(--ink); }
+  .product-tag { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-light); background: var(--border); border-radius: 4px; padding: 2px 7px; }
+  .toggle-icon { font-size: 16px; color: var(--ink-light); transition: transform 0.2s; line-height: 1; }
+  .product-block.collapsed .toggle-icon { transform: rotate(-90deg); }
+  .product-content { padding: 20px; display: grid; gap: 14px; }
+  .product-block.collapsed .product-content { display: none; }
+  .product-rag-row { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: var(--surface); border-radius: 8px; flex-wrap: wrap; }
+  .product-rag-row > span { font-size: 12px; font-weight: 500; color: var(--ink-mid); min-width: 100px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .summary-block { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 20px; }
+  .overall-rag { display: flex; gap: 16px; background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin-bottom: 28px; align-items: center; flex-wrap: wrap; }
+  .overall-rag > span { font-size: 13px; font-weight: 600; color: var(--ink); }
+
+  .form-footer { margin-top: 40px; display: flex; gap: 12px; align-items: center; padding-top: 20px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .btn { font-family: var(--font-body); font-size: 13px; font-weight: 600; padding: 10px 22px; border-radius: 6px; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #162f73; }
+  .btn-secondary { background: var(--surface); color: var(--ink-mid); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--border); }
+
+  .questions-grid { display: grid; gap: 12px; }
+  h3.subhead { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px dashed var(--border); }
+  .hint { font-size: 11px; color: var(--ink-light); font-style: italic; margin-top: 2px; }
+
+  /* ─── WEBHOOK CONFIG ─── */
+  .webhook-box { background: #EEF2FB; border: 1px solid #C0CFEF; border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .webhook-box .field { flex: 1; min-width: 260px; }
+  .webhook-box label { color: var(--accent) !important; font-weight: 600 !important; }
+  .webhook-box input { background: white; }
+
+  /* ─── SUBMIT MODAL ─── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 999; align-items: center; justify-content: center; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: white; border-radius: 12px; padding: 32px; max-width: 420px; width: 90%; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.18); }
+  .modal-icon { font-size: 36px; margin-bottom: 12px; }
+  .modal h3 { font-size: 17px; font-weight: 600; margin-bottom: 8px; color: var(--ink); }
+  .modal p { font-size: 13px; color: var(--ink-mid); line-height: 1.6; margin-bottom: 20px; }
+  .modal .btn { width: 100%; }
+  .btn-green { background: var(--green); color: white; }
+  .btn-green:hover { background: #166038; }
+  .btn-submit { background: var(--green); color: white; font-size: 14px; padding: 12px 28px; }
+  .btn-submit:hover { background: #166038; }
+  .btn-submit:disabled { background: var(--ink-light); cursor: not-allowed; }
+  .spinner-inline { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="header-eyebrow">Bullhorn — Customer Success</div>
+  <div class="header-title">Customer Risk Assessment</div>
+  <div class="header-sub">Complete one form per customer account. All sections should reflect the current portfolio state.</div>
+</div>
+
+<div class="form-body">
+
+  <!-- ── APPS SCRIPT WEBHOOK CONFIG ── -->
+  <div class="webhook-box no-print">
+    <div class="field">
+      <label>Google Apps Script Web App URL</label>
+      <input type="text" id="webhook-url" placeholder="Paste your Apps Script Web App URL here…" style="font-size:12px;">
+    </div>
+    <button class="btn btn-primary" onclick="saveWebhook()" style="white-space:nowrap; flex-shrink:0;">Save URL</button>
+  </div>
+
+  <!-- ── ACCOUNT META ── -->
+  <div class="meta-grid">
+
+    <div class="field full">
+      <label>CSM Name</label>
+      <select id="csm-select" onchange="populateAccounts()">
+        <option value="">— Select CSM —</option>
+      </select>
+    </div>
+
+    <div class="field full">
+      <label>Account / Company Name</label>
+      <select id="account-select" onchange="populateSFID()">
+        <option value="">— Select CSM first —</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Salesforce Account ID</label>
+      <input type="text" id="sf-account-id" readonly placeholder="Auto-populated from selection">
+    </div>
+
+    <div class="field">
+      <label>CSM Manager</label>
+      <input type="text" id="csm-manager" placeholder="Full name">
+    </div>
+
+    <div class="field">
+      <label>Assessment Date</label>
+      <input type="date" id="assessment-date">
+    </div>
+
+    <div class="field">
+      <label>Contract Renewal Date</label>
+      <input type="date">
+    </div>
+
+    <div class="field">
+      <label>Industry Vertical</label>
+      <input type="text" placeholder="e.g. Light Industrial, Healthcare, IT Staffing">
+    </div>
+
+    <div class="field">
+      <label>Annual Recurring Revenue (ARR)</label>
+      <input type="text" placeholder="$">
+    </div>
+
+    <div class="field">
+      <label>Primary Customer Contact</label>
+      <input type="text" placeholder="Name, Title">
+    </div>
+
+  </div>
+
+  <!-- ── OVERALL RAG ── -->
+  <div class="section-label">Overall Account Risk Rating</div>
+  <div class="overall-rag">
+    <span>Overall RAG Status:</span>
+    <div class="rag-options">
+      <div class="rag-option red"><input type="radio" name="overall_rag" id="ov_red" value="red"><label for="ov_red"><span class="rag-dot"></span> Red</label></div>
+      <div class="rag-option amber"><input type="radio" name="overall_rag" id="ov_amber" value="amber"><label for="ov_amber"><span class="rag-dot"></span> Amber</label></div>
+      <div class="rag-option green"><input type="radio" name="overall_rag" id="ov_green" value="green"><label for="ov_green"><span class="rag-dot"></span> Green</label></div>
+    </div>
+  </div>
+
+  <!-- ── STRATEGIC RISK QUESTIONS ── -->
+  <div class="section-label">Account-Level Risk Assessment</div>
+  <div class="summary-block">
+    <h3 class="subhead">Renewal &amp; Churn Risk</h3>
+    <div class="questions-grid">
+      <div class="field">
+        <label>How would you characterize the customer's likelihood to renew?</label>
+        <select>
+          <option value="">Select…</option>
+          <option>Very likely — champion advocate, strong usage</option>
+          <option>Likely — generally satisfied, minor concerns</option>
+          <option>Uncertain — mixed signals, key risks present</option>
+          <option>At risk — active dissatisfaction or competitor evaluation</option>
+          <option>High churn risk — escalation active or churn conversation started</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Has the customer expressed intent to evaluate competitors or reduce scope?</label>
+        <select>
+          <option value="">Select…</option>
+          <option>No — no indication</option>
+          <option>Informally mentioned — not a formal process</option>
+          <option>Yes — actively evaluating alternatives</option>
+          <option>Yes — RFP or formal review underway</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>What is the primary churn driver, if any?</label>
+        <textarea placeholder="e.g. Budget pressure, product gaps, executive sponsor departure, competitor demo'd…"></textarea>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── PRODUCT SECTIONS ── -->
+  <div class="section-label">Product-Level Risk Assessment</div>
+  <p class="hint" style="margin-bottom:18px">Expand each product the customer is licensed for. Leave collapsed if not applicable.</p>
+
+  <!-- ATS -->
+  <div class="product-block" id="prod-ats">
+    <div class="product-header" onclick="toggleProduct('prod-ats')">
+      <div class="product-header-left"><span class="product-name">ATS (Applicant Tracking System)</span><span class="product-tag">Core Platform</span></div>
+      <span class="toggle-icon">▾</span>
+    </div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_ats" id="rag_ats_r" value="red"><label for="rag_ats_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_ats" id="rag_ats_a" value="amber"><label for="rag_ats_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_ats" id="rag_ats_g" value="green"><label for="rag_ats_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col">
+        <div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div>
+        <div class="field"><label>Adoption level</label><select><option value="">Select…</option><option>Strong</option><option>Moderate</option><option>Low</option><option>Critical gaps</option></select></div>
+      </div>
+      <div class="field"><label>Open escalations or support cases</label><textarea placeholder="Reference case numbers, describe issue, current status…"></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Workflow issues, UX complaints, missing features causing friction…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea placeholder="Feature requests, bugs on roadmap, committed items not yet delivered…"></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea placeholder="What needs to happen to move this to Green?"></textarea></div>
+    </div>
+  </div>
+
+  <!-- BH1 -->
+  <div class="product-block collapsed" id="prod-bh1">
+    <div class="product-header" onclick="toggleProduct('prod-bh1')"><div class="product-header-left"><span class="product-name">Bullhorn One (BH1)</span><span class="product-tag">Core Platform</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_bh1" id="rag_bh1_r" value="red"><label for="rag_bh1_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_bh1" id="rag_bh1_a" value="amber"><label for="rag_bh1_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_bh1" id="rag_bh1_g" value="green"><label for="rag_bh1_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Adoption level</label><select><option value="">Select…</option><option>Strong</option><option>Moderate</option><option>Low</option><option>Critical gaps</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea placeholder="Reference case numbers, describe issue, current status…"></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- DATA REPLICATOR -->
+  <div class="product-block collapsed" id="prod-dr">
+    <div class="product-header" onclick="toggleProduct('prod-dr')"><div class="product-header-left"><span class="product-name">Data Replicator</span><span class="product-tag">Data &amp; Integration</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_dr" id="rag_dr_r" value="red"><label for="rag_dr_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_dr" id="rag_dr_a" value="amber"><label for="rag_dr_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_dr" id="rag_dr_g" value="green"><label for="rag_dr_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Sync frequency / reliability</label><select><option value="">Select…</option><option>Healthy — no known issues</option><option>Intermittent failures</option><option>Consistent failures</option><option>Not monitored</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Data latency, schema issues, replication failures, BI tool conflicts…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- CANVAS -->
+  <div class="product-block collapsed" id="prod-canvas">
+    <div class="product-header" onclick="toggleProduct('prod-canvas')"><div class="product-header-left"><span class="product-name">Canvas</span><span class="product-tag">Reporting &amp; Analytics</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_canvas" id="rag_canvas_r" value="red"><label for="rag_canvas_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_canvas" id="rag_canvas_a" value="amber"><label for="rag_canvas_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_canvas" id="rag_canvas_g" value="green"><label for="rag_canvas_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Report adoption</label><select><option value="">Select…</option><option>Strong</option><option>Moderate</option><option>Low</option><option>Not adopted</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Report building complexity, data accuracy concerns, missing metrics…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- BTE -->
+  <div class="product-block collapsed" id="prod-bte">
+    <div class="product-header" onclick="toggleProduct('prod-bte')"><div class="product-header-left"><span class="product-name">BTE (Bullhorn Time &amp; Expense)</span><span class="product-tag">Time &amp; Pay</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_bte" id="rag_bte_r" value="red"><label for="rag_bte_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_bte" id="rag_bte_a" value="amber"><label for="rag_bte_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_bte" id="rag_bte_g" value="green"><label for="rag_bte_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Timesheet submission adoption</label><select><option value="">Select…</option><option>Strong</option><option>Moderate</option><option>Low</option><option>Not adopted</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Approval workflow issues, payroll integration errors, mobile usability, worker adoption…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- ONB365 -->
+  <div class="product-block collapsed" id="prod-onb">
+    <div class="product-header" onclick="toggleProduct('prod-onb')"><div class="product-header-left"><span class="product-name">ONB365 (Onboarding)</span><span class="product-tag">Onboarding</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_onb" id="rag_onb_r" value="red"><label for="rag_onb_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_onb" id="rag_onb_a" value="amber"><label for="rag_onb_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_onb" id="rag_onb_g" value="green"><label for="rag_onb_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Onboarding completion rate (est.)</label><select><option value="">Select…</option><option>&gt;90%</option><option>70–90%</option><option>50–70%</option><option>&lt;50%</option><option>Unknown</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Form completion drop-off, compliance document issues, I-9/E-Verify problems, worker experience complaints…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- BBO -->
+  <div class="product-block collapsed" id="prod-bbo">
+    <div class="product-header" onclick="toggleProduct('prod-bbo')"><div class="product-header-left"><span class="product-name">BBO (Bullhorn Back Office)</span><span class="product-tag">Back Office</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_bbo" id="rag_bbo_r" value="red"><label for="rag_bbo_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_bbo" id="rag_bbo_a" value="amber"><label for="rag_bbo_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_bbo" id="rag_bbo_g" value="green"><label for="rag_bbo_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Payroll / billing run health</label><select><option value="">Select…</option><option>Healthy — no known issues</option><option>Minor errors / manual workarounds</option><option>Significant errors</option><option>Critical failures</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Payroll discrepancies, billing errors, GL export issues, tax configuration, manual workarounds…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- VMS SYNC -->
+  <div class="product-block collapsed" id="prod-vms">
+    <div class="product-header" onclick="toggleProduct('prod-vms')"><div class="product-header-left"><span class="product-name">VMS Sync</span><span class="product-tag">Integration</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_vms" id="rag_vms_r" value="red"><label for="rag_vms_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_vms" id="rag_vms_a" value="amber"><label for="rag_vms_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_vms" id="rag_vms_g" value="green"><label for="rag_vms_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Which VMS platforms are synced?</label><input type="text" placeholder="e.g. Fieldglass, Beeline, Ariba…"></div><div class="field"><label>Sync health</label><select><option value="">Select…</option><option>Healthy — no known issues</option><option>Intermittent failures</option><option>Consistent failures</option><option>Not monitored</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Field mapping failures, rate card issues, duplicate records, VMS-side changes breaking sync…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- AUTOMATION -->
+  <div class="product-block collapsed" id="prod-auto">
+    <div class="product-header" onclick="toggleProduct('prod-auto')"><div class="product-header-left"><span class="product-name">Automation</span><span class="product-tag">Automation</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_auto" id="rag_auto_r" value="red"><label for="rag_auto_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_auto" id="rag_auto_a" value="amber"><label for="rag_auto_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_auto" id="rag_auto_g" value="green"><label for="rag_auto_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Active automation count (approx.)</label><input type="number" placeholder="e.g. 12"></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Automation failures, trigger logic issues, email deliverability, limited use of available triggers…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- AMPLIFY -->
+  <div class="product-block collapsed" id="prod-amp">
+    <div class="product-header" onclick="toggleProduct('prod-amp')"><div class="product-header-left"><span class="product-name">Amplify</span><span class="product-tag">Talent Engagement</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_amp" id="rag_amp_r" value="red"><label for="rag_amp_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_amp" id="rag_amp_a" value="amber"><label for="rag_amp_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_amp" id="rag_amp_g" value="green"><label for="rag_amp_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Talent portal adoption</label><select><option value="">Select…</option><option>Strong — workers actively self-serving</option><option>Moderate</option><option>Low</option><option>Not adopted</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Worker app adoption, push notification issues, job board performance, branding/config limitations…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- eRECRUIT -->
+  <div class="product-block collapsed" id="prod-er">
+    <div class="product-header" onclick="toggleProduct('prod-er')"><div class="product-header-left"><span class="product-name">eRecruit</span><span class="product-tag">Core Platform</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_er" id="rag_er_r" value="red"><label for="rag_er_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_er" id="rag_er_a" value="amber"><label for="rag_er_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_er" id="rag_er_g" value="green"><label for="rag_er_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Migration status (if applicable)</label><select><option value="">Select…</option><option>N/A — staying on eRecruit</option><option>Migration planned</option><option>Migration in progress</option><option>Migration complete</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Legacy workflow concerns, integration limitations, migration anxiety…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- OTE/TP (ABLE) -->
+  <div class="product-block collapsed" id="prod-ote">
+    <div class="product-header" onclick="toggleProduct('prod-ote')"><div class="product-header-left"><span class="product-name">OTE / TP (Able)</span><span class="product-tag">Time &amp; Pay</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_ote" id="rag_ote_r" value="red"><label for="rag_ote_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_ote" id="rag_ote_a" value="amber"><label for="rag_ote_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_ote" id="rag_ote_g" value="green"><label for="rag_ote_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Pay run health</label><select><option value="">Select…</option><option>Healthy</option><option>Minor issues</option><option>Significant errors</option><option>Critical failures</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Timesheet issues, approval delays, payroll errors, worker communication problems…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- ANALYTICS -->
+  <div class="product-block collapsed" id="prod-analytics">
+    <div class="product-header" onclick="toggleProduct('prod-analytics')"><div class="product-header-left"><span class="product-name">Analytics</span><span class="product-tag">Reporting &amp; Analytics</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_analytics" id="rag_analytics_r" value="red"><label for="rag_analytics_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_analytics" id="rag_analytics_a" value="amber"><label for="rag_analytics_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_analytics" id="rag_analytics_g" value="green"><label for="rag_analytics_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Dashboard / report adoption</label><select><option value="">Select…</option><option>Strong</option><option>Moderate</option><option>Low</option><option>Not adopted</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Data freshness, metric accuracy, dashboard customization limits, missing KPIs…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- SOURCEBREAKER -->
+  <div class="product-block collapsed" id="prod-sb">
+    <div class="product-header" onclick="toggleProduct('prod-sb')"><div class="product-header-left"><span class="product-name">Sourcebreaker</span><span class="product-tag">Sourcing</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_sb" id="rag_sb_r" value="red"><label for="rag_sb_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_sb" id="rag_sb_a" value="amber"><label for="rag_sb_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_sb" id="rag_sb_g" value="green"><label for="rag_sb_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Search / sourcing adoption</label><select><option value="">Select…</option><option>Strong</option><option>Moderate</option><option>Low</option><option>Not adopted</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Search result quality, job board integrations, ATS sync issues, seat utilization…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- ADAPT US -->
+  <div class="product-block collapsed" id="prod-adus">
+    <div class="product-header" onclick="toggleProduct('prod-adus')"><div class="product-header-left"><span class="product-name">Adapt US</span><span class="product-tag">Core Platform</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_adus" id="rag_adus_r" value="red"><label for="rag_adus_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_adus" id="rag_adus_a" value="amber"><label for="rag_adus_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_adus" id="rag_adus_g" value="green"><label for="rag_adus_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Migration / modernization status</label><select><option value="">Select…</option><option>N/A</option><option>Migration planned</option><option>Migration in progress</option><option>Migration complete</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Legacy concerns, integration gaps, workflow limitations, upgrade resistance…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- ADAPT UK -->
+  <div class="product-block collapsed" id="prod-aduk">
+    <div class="product-header" onclick="toggleProduct('prod-aduk')"><div class="product-header-left"><span class="product-name">Adapt UK</span><span class="product-tag">Core Platform</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_aduk" id="rag_aduk_r" value="red"><label for="rag_aduk_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_aduk" id="rag_aduk_a" value="amber"><label for="rag_aduk_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_aduk" id="rag_aduk_g" value="green"><label for="rag_aduk_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>UK compliance / IR35 config status</label><select><option value="">Select…</option><option>Fully configured</option><option>Partially configured</option><option>Not configured</option><option>N/A</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="IR35 concerns, AWR compliance, payroll integrations, UK-specific workflow gaps…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- ADAPT APAC -->
+  <div class="product-block collapsed" id="prod-adapac">
+    <div class="product-header" onclick="toggleProduct('prod-adapac')"><div class="product-header-left"><span class="product-name">Adapt APAC</span><span class="product-tag">Core Platform</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_adapac" id="rag_adapac_r" value="red"><label for="rag_adapac_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_adapac" id="rag_adapac_a" value="amber"><label for="rag_adapac_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_adapac" id="rag_adapac_g" value="green"><label for="rag_adapac_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Region(s) active</label><input type="text" placeholder="e.g. AU, NZ, SG, HK"></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Regional compliance gaps, time zone support issues, local payroll integration…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- STAFFSUITE -->
+  <div class="product-block collapsed" id="prod-ss">
+    <div class="product-header" onclick="toggleProduct('prod-ss')"><div class="product-header-left"><span class="product-name">StaffSuite</span><span class="product-tag">Core Platform</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_ss" id="rag_ss_r" value="red"><label for="rag_ss_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_ss" id="rag_ss_a" value="amber"><label for="rag_ss_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_ss" id="rag_ss_g" value="green"><label for="rag_ss_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Migration / modernization status</label><select><option value="">Select…</option><option>N/A</option><option>Migration planned</option><option>Migration in progress</option><option>Migration complete</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Legacy platform concerns, integration gaps, upgrade blockers, end-of-life concerns…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- eEmpACT -->
+  <div class="product-block collapsed" id="prod-eemp">
+    <div class="product-header" onclick="toggleProduct('prod-eemp')"><div class="product-header-left"><span class="product-name">eEmpACT</span><span class="product-tag">Core Platform</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_eemp" id="rag_eemp_r" value="red"><label for="rag_eemp_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_eemp" id="rag_eemp_a" value="amber"><label for="rag_eemp_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_eemp" id="rag_eemp_g" value="green"><label for="rag_eemp_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Migration / modernization status</label><select><option value="">Select…</option><option>N/A</option><option>Migration planned</option><option>Migration in progress</option><option>Migration complete</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Legacy concerns, feature gaps, upgrade blockers…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- INVENIAS -->
+  <div class="product-block collapsed" id="prod-inv">
+    <div class="product-header" onclick="toggleProduct('prod-inv')"><div class="product-header-left"><span class="product-name">Invenias</span><span class="product-tag">Executive Search</span></div><span class="toggle-icon">▾</span></div>
+    <div class="product-content">
+      <div class="product-rag-row"><span>Product RAG:</span><div class="rag-options"><div class="rag-option red"><input type="radio" name="rag_inv" id="rag_inv_r" value="red"><label for="rag_inv_r"><span class="rag-dot"></span> Red</label></div><div class="rag-option amber"><input type="radio" name="rag_inv" id="rag_inv_a" value="amber"><label for="rag_inv_a"><span class="rag-dot"></span> Amber</label></div><div class="rag-option green"><input type="radio" name="rag_inv" id="rag_inv_g" value="green"><label for="rag_inv_g"><span class="rag-dot"></span> Green</label></div></div></div>
+      <div class="two-col"><div class="field"><label>Is this product live / in production?</label><select><option>Yes — fully live</option><option>Partial / phased rollout</option><option>In implementation</option><option>Not yet started</option></select></div><div class="field"><label>Adoption level</label><select><option value="">Select…</option><option>Strong</option><option>Moderate</option><option>Low</option><option>Critical gaps</option></select></div></div>
+      <div class="field"><label>Open escalations or support cases</label><textarea></textarea></div>
+      <div class="field"><label>Key pain points / friction areas</label><textarea placeholder="Search workflow gaps, Outlook integration issues, candidate portal concerns, data migration…"></textarea></div>
+      <div class="field"><label>Outstanding dev / roadmap items impacting this customer</label><textarea></textarea></div>
+      <div class="field"><label>Recommended actions / next steps</label><textarea></textarea></div>
+    </div>
+  </div>
+
+  <!-- ── SUMMARY & ACTION PLAN ── -->
+  <div class="section-label">Summary &amp; Action Plan</div>
+  <div class="summary-block">
+    <div class="questions-grid">
+      <div class="field">
+        <label>Executive summary (2–4 sentences for internal handoff or leadership review)</label>
+        <textarea class="tall" placeholder="Summarise the overall health of the account, key risks, and priority actions…"></textarea>
+      </div>
+      <div class="field">
+        <label>Top 3 risks requiring immediate action</label>
+        <textarea placeholder="1.&#10;2.&#10;3."></textarea>
+      </div>
+      <div class="field">
+        <label>Agreed next steps (with owner and due date)</label>
+        <textarea class="tall" placeholder="e.g. [CSM] Schedule executive business review by 15 May&#10;[PM] Escalate dev ticket #12345 to engineering by EOW&#10;[CSM] Deliver adoption report to customer by 30 April"></textarea>
+      </div>
+      <div class="field">
+        <label>Internal escalation required?</label>
+        <select>
+          <option value="">Select…</option>
+          <option>No — manageable within CSM remit</option>
+          <option>Yes — CSM Manager aware</option>
+          <option>Yes — VP / Director escalation needed</option>
+          <option>Yes — cross-functional escalation (Support, PM, Engineering)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Date of next scheduled customer touchpoint</label>
+        <input type="date">
+      </div>
+      <div class="field">
+        <label>Additional notes</label>
+        <textarea placeholder="Anything else relevant to this assessment…"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-footer no-print">
+    <button class="btn btn-submit" id="submit-btn" onclick="submitToSheet()">Submit to Google Sheet</button>
+    <button class="btn btn-primary" onclick="window.print()" style="background:#4A4A6A;">Print / Save as PDF</button>
+    <button class="btn btn-secondary" onclick="resetForm()">Reset Form</button>
+  </div>
+
+  <!-- ── SUCCESS MODAL ── -->
+  <div class="modal-overlay" id="success-modal">
+    <div class="modal">
+      <div class="modal-icon">✅</div>
+      <h3>Assessment submitted!</h3>
+      <p>The risk assessment has been written to your Google Sheet. You can close this form or start a new assessment.</p>
+      <button class="btn btn-green" onclick="closeModal(); resetForm()">Start new assessment</button>
+    </div>
+  </div>
+
+  <!-- ── ERROR MODAL ── -->
+  <div class="modal-overlay" id="error-modal">
+    <div class="modal">
+      <div class="modal-icon">⚠️</div>
+      <h3>Submission failed</h3>
+      <p id="error-msg">Something went wrong. Make sure your Apps Script URL is saved and the Web App is deployed as "Anyone".</p>
+      <button class="btn btn-secondary" onclick="document.getElementById('error-modal').classList.remove('active')">Close</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ─── HARDCODED DATA (from Dedicated_CS_-_Account_List.xlsx) ───
+  const sheetData = [{"csm":"Aakash Patel","account":"The CSI Companies, Inc.","sfid":"001U000000YTwtWIAT"},{"csm":"Aakash Patel","account":"Kelly Services, Inc.","sfid":"001U000000YTxtWIAT"},{"csm":"Aakash Patel","account":"Manpower North America","sfid":"0013g00000fqL1WAAU"},{"csm":"BK","account":"PP Recruitment Holdings Limited","sfid":"0010d00001McMahAAF"},{"csm":"BK","account":"ManpowerGroup France","sfid":"001U000001Tkr6mIAB"},{"csm":"BK","account":"Adequat / Groupe Adequat - EMEA","sfid":"0013g00000VfT1qAAF"},{"csm":"BK","account":"Austin Fraser GmbH","sfid":"0013g00000VfxZNAAZ"},{"csm":"Christian Casper","account":"Populus Group, LLC","sfid":"0013g000002njVPAAY"},{"csm":"Christian Casper","account":"Partners Personnel - Management Services, LLC","sfid":"0013g000002nOjKAAU"},{"csm":"Christian Casper","account":"QPS Employment Group, Inc.","sfid":"0013g000002nP5GAAU"},{"csm":"Christian Casper","account":"Allegis Group, Inc.","sfid":"001U000000YTwohIAD"},{"csm":"Christina Allen","account":"TEEMA Inc","sfid":"0013g00000VfMobAAF"},{"csm":"Christina Allen","account":"EPITEC, INC.","sfid":"0013g00000VfSOmAAN"},{"csm":"Christina Allen","account":"The Bachrach Group","sfid":"001U000000YTxfLIAT"},{"csm":"Christina Allen","account":"Solomon Page Group LLC","sfid":"001U000000YTxtfIAD"},{"csm":"Christina Allen","account":"Protingent, Inc. (DBA Protingent Staffing)","sfid":"001U000000YTxwGIAT"},{"csm":"Christina Allen","account":"CSI IT, LLC (dba Consulting Solutions)","sfid":"001U000000YTyGCIA1"},{"csm":"Christina Allen","account":"Triple Crown Consulting LLC","sfid":"001U000000YTykBIAT"},{"csm":"Christina Allen","account":"Advance Services Inc.","sfid":"001U000000YUH2EIAX"},{"csm":"Christina Allen","account":"Masis Staffing Solutions, LLC","sfid":"001U000001cPg68IAC"},{"csm":"Christina Allen","account":"Atrium Staffing Services, LTD","sfid":"001U000000YUMjmIAH"},{"csm":"Christina Allen","account":"Express Employment Professionals","sfid":"0010P00001wRbLmQAK"},{"csm":"David Cashman","account":"Harvey Nash Group Holdings Limited","sfid":"0013g000005kBISAA2"},{"csm":"David Cashman","account":"NES Fircroft Limited","sfid":"001U000000YTxnZIAT"},{"csm":"David Cashman","account":"Meet Recruitment Limited","sfid":"001U000000YTxoHIAT"},{"csm":"David Cashman","account":"Empresaria Group PLC","sfid":"001U000000YUH7WIAX"},{"csm":"David Cashman","account":"ASSC a division of Adcorp Management Services (Pty) Ltd","sfid":"001U000000YUOozIAH"},{"csm":"David Cashman","account":"Impellam UK Limited (BH UK)","sfid":"0013g00000M9rxNAAR"},{"csm":"David Cashman","account":"ManpowerGroup Global, Inc.","sfid":"001U000000YUOSUIA5"},{"csm":"Evan Smith","account":"Belflex Staffing Network, LLC","sfid":"0013g00000AUWKSAA5"},{"csm":"Evan Smith","account":"Management Analysis & Utilization, Inc. (dba MAU Workforce Solutions)","sfid":"0013g00000MBfMxAAL"},{"csm":"Evan Smith","account":"Lawrence Recruiting Specialists Inc.","sfid":"001U000000YTxjyIAD"},{"csm":"Evan Smith","account":"Jackson Nurse Professionals, LLC","sfid":"001U000000YUEzPIAX"},{"csm":"Evan Smith","account":"Innova Solutions, Inc.","sfid":""},{"csm":"Hayley Ward","account":"La Fosse Associates Limited","sfid":"0010d00001NzwxqAAB"},{"csm":"Hayley Ward","account":"Airswift Holdings Limited - USD","sfid":"0010P00001sNxAdQAK"},{"csm":"Hayley Ward","account":"Spencer Ogden Limited","sfid":"001U000000YTxnRIAT"},{"csm":"Hayley Ward","account":"Investigo Ltd","sfid":"001U000000YTxnYIAT"},{"csm":"Hayley Ward","account":"Matchtech Group (UK) Ltd","sfid":"001U000000YUMkYIAX"},{"csm":"Hayley Ward","account":"Pulse Healthcare Limited","sfid":"001U000000YUMlAIAX"},{"csm":"Hayley Ward","account":"G2V Recruitment Group Ltd","sfid":"001U000000YUOHTIA5"},{"csm":"Hayley Ward","account":"Precision Resource Group Limited","sfid":"001U000000Zla2HIAR"},{"csm":"Hayley Ward","account":"Vibe Group Netherlands B.V.","sfid":"001U000001UD86KIAT"},{"csm":"Hayley Ward","account":"Gravitas Recruitment Group Ltd","sfid":"001U000000YTxnmIAD"},{"csm":"Hayley Ward","account":"Hobson Prior Ltd","sfid":"001U000000YUODoIAP"},{"csm":"Leslie Berres","account":"Kforce Inc.","sfid":"0010P00001wRhgTQAS"},{"csm":"Leslie Berres","account":"PeopleReady","sfid":"0013g00000QqIROAA3"},{"csm":"Leslie Berres","account":"ALKU, LLC DBA Salestart","sfid":"001U000000YTxeXIAT"},{"csm":"Leslie Berres","account":"Healthcare Support Staffing, Inc.","sfid":"001U000000YTyMtIAL"},{"csm":"Leslie Berres","account":"Cross Country Healthcare, Inc.","sfid":"001U000000YUOhIIAX"},{"csm":"Leslie Berres","account":"Ingenovis Health, Inc.","sfid":"0013g00000Bsd3mAAB"},{"csm":"Megan Lynch","account":"PERSOLKELLY Pte Ltd","sfid":"0010P00001mE47oQAC"},{"csm":"Megan Lynch","account":"Aurec Pty Ltd","sfid":"001U000000YTxwzIAD"},{"csm":"Megan Lynch","account":"Ambition Corporate Services Pty Ltd","sfid":"001U000001Y27FCIAZ"},{"csm":"Megan Lynch","account":"Accordant Group Services Limited","sfid":"001U000001REXWGIA5"},{"csm":"Megan Lynch","account":"Hudson Global Resources (Aust) Pty Ltd","sfid":"0013g000002mzv9AAA"},{"csm":"Megan Lynch","account":"Manpower Services (Australia) Pty Ltd","sfid":"0010d00001Nx0qnAAB"},{"csm":"Megan Lynch","account":"Outsourcing Oceania Pty Ltd","sfid":"001U000000YUP6NIAX"},{"csm":"Megan Lynch","account":"RGF Staffing ANZ Pty Ltd","sfid":"001U000000YTxySIAT"},{"csm":"Megan Lynch","account":"Talent International Holdings Pty Ltd","sfid":"0010P00001yubrAQAQ"},{"csm":"Megan Lynch","account":"Ethos Beathchapman Australia Pty Ltd","sfid":"0010d00001MaN0SAAV"},{"csm":"Olen Henderson","account":"Alliance Solutions Group, LLC (dba TALENTLAUNCH)","sfid":"0010P00001wRhfBQAS"},{"csm":"Olen Henderson","account":"Harvey Nash Group Holdings Limited (US) - Billed to HQ","sfid":"001U000000YTxfiIAD"},{"csm":"Olen Henderson","account":"Alliance Solutions Group, LLC","sfid":"001U000000YUMjlIAH"},{"csm":"Olen Henderson","account":"Peoplelink, LLC","sfid":"001U000000YUMUHIA5"},{"csm":"Olen Henderson","account":"Insight Global LLC","sfid":"001U000000YUOnYIAX"},{"csm":"Olen Henderson","account":"Adecco GS","sfid":"001U000001jX4C7IAK"},{"csm":"Olen Henderson","account":"Signature Commercial Solutions, LLC","sfid":""},{"csm":"Sarah Schildmeier","account":"Fusion Medical Staffing, LLC","sfid":"001U000000YTwsIIAT"},{"csm":"Sarah Schildmeier","account":"Seneca Resources","sfid":"001U000000YTx4AIAT"},{"csm":"Sarah Schildmeier","account":"Procom Consultants Group, Ltd","sfid":"001U000000YTxtdIAD"},{"csm":"Sarah Schildmeier","account":"Integrity Staffing Solutions Inc.","sfid":"001U000000YTy4LIAT"},{"csm":"Sarah Schildmeier","account":"Soliant Health, LLC","sfid":"001U000000YUEndIAH"},{"csm":"Sarah Schildmeier","account":"Randstad Accounting & Finance","sfid":"001U000000YTwokIAD"},{"csm":"Tony Cardinella","account":"AMN Healthcare Inc.","sfid":"0010P00001wRhxrQAC"},{"csm":"Tony Cardinella","account":"Atlas MedStaff","sfid":"0010P00001wRiMhQAK"},{"csm":"Tony Cardinella","account":"Advanced Personnel Inc.","sfid":"0013g00000jTKQ1AAO"},{"csm":"Tony Cardinella","account":"Impellam UK Limited (BH NA)","sfid":"0013g00000M9rvMAAR"},{"csm":"Tony Cardinella","account":"Management Registry, Inc. (dba Malone Workforce Solutions)","sfid":"0013g00000QrQKNAA3"},{"csm":"Tony Cardinella","account":"LSI Corporation Temporary Services & Placement Agency","sfid":"0013g00000VfRpaAAF"},{"csm":"Tony Cardinella","account":"The Day & Zimmermann Group, Inc.","sfid":"001U000000YTwotIAD"},{"csm":"Tony Cardinella","account":"Internal Data Resources, Inc.","sfid":"001U000000YTxl2IAD"},{"csm":"Tony Cardinella","account":"Pridestaff Inc","sfid":"001U000000YTy4eIAD"},{"csm":"Tony Cardinella","account":"Medix Staffing Solutions, Inc.","sfid":"001U000000YTy4zIAD"},{"csm":"Tony Cardinella","account":"Robert Half International, Inc.","sfid":"001U000000YUHOcIAP"},{"csm":"Tony Cardinella","account":"Triage, LLC","sfid":"001U000000YUMUlIAP"},{"csm":"Tony Cardinella","account":"StevenDouglas Associates, LLC","sfid":"001U000000YUR2BIAX"}];
+
+  // ─── INIT: populate CSM dropdown on load ───
+  (function init() {
+    const csmNames = [...new Set(sheetData.map(r => r.csm))].sort();
+    const sel = document.getElementById('csm-select');
+    sel.innerHTML = '<option value="">— Select CSM —</option>';
+    csmNames.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      sel.appendChild(opt);
+    });
+  })();
+
+  // ─── POPULATE ACCOUNTS FOR SELECTED CSM ───
+  function populateAccounts() {
+    const csm = document.getElementById('csm-select').value;
+    const accSel = document.getElementById('account-select');
+    document.getElementById('sf-account-id').value = '';
+
+    if (!csm) {
+      accSel.innerHTML = '<option value="">— Select CSM first —</option>';
+      return;
+    }
+
+    const seen = new Map();
+    sheetData.filter(r => r.csm === csm).forEach(r => {
+      if (!seen.has(r.account)) seen.set(r.account, r.sfid);
+    });
+
+    accSel.innerHTML = '<option value="">— Select Account —</option>';
+    [...seen.entries()].sort((a, b) => a[0].localeCompare(b[0])).forEach(([account, sfid]) => {
+      const opt = document.createElement('option');
+      opt.value = account; opt.dataset.sfid = sfid; opt.textContent = account;
+      accSel.appendChild(opt);
+    });
+  }
+
+  // ─── AUTO-FILL SFID ───
+  function populateSFID() {
+    const accSel = document.getElementById('account-select');
+    const selected = accSel.options[accSel.selectedIndex];
+    document.getElementById('sf-account-id').value = selected ? (selected.dataset.sfid || '') : '';
+  }
+
+  // ─── PRODUCT TOGGLE ───
+  function toggleProduct(id) {
+    document.getElementById(id).classList.toggle('collapsed');
+  }
+
+  // ─── RESET ───
+  function resetForm() {
+    if (confirm('Reset all form fields? This cannot be undone.')) {
+      document.querySelectorAll('input:not([type=radio]):not([type=date])').forEach(i => i.value = '');
+      document.querySelectorAll('textarea').forEach(t => t.value = '');
+      document.querySelectorAll('select:not(#csm-select):not(#account-select)').forEach(s => s.selectedIndex = 0);
+      document.querySelectorAll('input[type=radio]').forEach(r => r.checked = false);
+      document.querySelectorAll('input[type=date]').forEach(d => d.value = '');
+      document.getElementById('csm-select').value = '';
+      document.getElementById('account-select').innerHTML = '<option value="">— Select CSM first —</option>';
+      document.getElementById('sf-account-id').value = '';
+      document.getElementById('assessment-date').value = new Date().toISOString().split('T')[0];
+    }
+  }
+
+  // Set today's date as default assessment date
+  document.getElementById('assessment-date').value = new Date().toISOString().split('T')[0];
+
+  // ─── WEBHOOK URL SAVE/LOAD ───
+  const WEBHOOK_KEY = 'bh_risk_webhook_url';
+  (function loadWebhook() {
+    const saved = localStorage.getItem(WEBHOOK_KEY);
+    if (saved) document.getElementById('webhook-url').value = saved;
+  })();
+  function saveWebhook() {
+    const url = document.getElementById('webhook-url').value.trim();
+    if (!url) return;
+    localStorage.setItem(WEBHOOK_KEY, url);
+    const btn = event.target;
+    btn.textContent = 'Saved ✓';
+    setTimeout(() => btn.textContent = 'Save URL', 1500);
+  }
+
+  // ─── COLLECT ALL FORM DATA ───
+  function collectFormData() {
+    const get = id => (document.getElementById(id) || {}).value || '';
+    const getRadio = name => { const el = document.querySelector(`input[name="${name}"]:checked`); return el ? el.value : ''; };
+    const getSelect = id => { const el = document.getElementById(id); return el ? el.options[el.selectedIndex]?.text || '' : ''; };
+
+    // Product fields helper
+    const prod = (prefix) => {
+      const block = document.getElementById('prod-' + prefix);
+      if (!block) return {};
+      const inputs = block.querySelectorAll('input:not([type=radio]), textarea, select');
+      const rag = block.querySelector('input[type=radio]:checked');
+      const fields = { rag: rag ? rag.value : '' };
+      let i = 0;
+      inputs.forEach(el => { fields['field_' + (i++)] = el.value || ''; });
+      return fields;
+    };
+
+    // Walk all labeled fields in order
+    const labeledFields = {};
+    document.querySelectorAll('.field label, .rag-field label').forEach(lbl => {
+      const text = lbl.textContent.trim();
+      const parent = lbl.parentElement;
+      const input = parent.querySelector('input:not([type=radio]), textarea, select');
+      const radio = parent.querySelector('input[type=radio]:checked');
+      if (input) labeledFields[text] = input.value || '';
+      else if (radio) labeledFields[text] = radio.value;
+    });
+
+    // Build structured payload
+    const payload = {
+      timestamp: new Date().toISOString(),
+      // Account meta
+      csm_name: get('csm-select') || document.getElementById('csm-select').options[document.getElementById('csm-select').selectedIndex]?.text || '',
+      account_name: document.getElementById('account-select').options[document.getElementById('account-select').selectedIndex]?.text || '',
+      sf_account_id: get('sf-account-id'),
+      csm_manager: get('csm-manager'),
+      assessment_date: get('assessment-date'),
+      overall_rag: getRadio('overall_rag'),
+      // Renewal risk
+      renewal_likelihood: '',
+      competitor_evaluation: '',
+      churn_driver: '',
+      // Product RAGs
+      rag_ats: getRadio('rag_ats'),
+      rag_bh1: getRadio('rag_bh1'),
+      rag_dr: getRadio('rag_dr'),
+      rag_canvas: getRadio('rag_canvas'),
+      rag_bte: getRadio('rag_bte'),
+      rag_onb: getRadio('rag_onb'),
+      rag_bbo: getRadio('rag_bbo'),
+      rag_vms: getRadio('rag_vms'),
+      rag_auto: getRadio('rag_auto'),
+      rag_amp: getRadio('rag_amp'),
+      rag_er: getRadio('rag_er'),
+      rag_ote: getRadio('rag_ote'),
+      rag_analytics: getRadio('rag_analytics'),
+      rag_sb: getRadio('rag_sb'),
+      rag_adus: getRadio('rag_adus'),
+      rag_aduk: getRadio('rag_aduk'),
+      rag_adapac: getRadio('rag_adapac'),
+      rag_ss: getRadio('rag_ss'),
+      rag_eemp: getRadio('rag_eemp'),
+      rag_inv: getRadio('rag_inv'),
+    };
+
+    // Collect all textareas and selects by their label text
+    document.querySelectorAll('.summary-block .field, .product-content .field').forEach(field => {
+      const lbl = field.querySelector('label');
+      const inp = field.querySelector('textarea, select, input:not([type=radio])');
+      if (lbl && inp) {
+        const key = lbl.textContent.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 60);
+        payload[key] = inp.value || '';
+      }
+    });
+
+    // Renewal/churn selects (first 3 selects inside summary-block)
+    const summarySelects = document.querySelectorAll('.summary-block select');
+    if (summarySelects[0]) payload.renewal_likelihood = summarySelects[0].options[summarySelects[0].selectedIndex]?.text || '';
+    if (summarySelects[1]) payload.competitor_evaluation = summarySelects[1].options[summarySelects[1].selectedIndex]?.text || '';
+
+    return payload;
+  }
+
+  // ─── SUBMIT TO GOOGLE SHEET ───
+  async function submitToSheet() {
+    const webhookUrl = (localStorage.getItem(WEBHOOK_KEY) || document.getElementById('webhook-url').value || '').trim();
+    if (!webhookUrl) {
+      document.getElementById('error-msg').textContent = 'No Apps Script URL configured. Paste your Web App URL in the field at the top and click Save URL.';
+      document.getElementById('error-modal').classList.add('active');
+      return;
+    }
+
+    const csm = document.getElementById('csm-select').value;
+    const account = document.getElementById('account-select').value;
+    if (!csm || !account) {
+      document.getElementById('error-msg').textContent = 'Please select a CSM and Account before submitting.';
+      document.getElementById('error-modal').classList.add('active');
+      return;
+    }
+
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-inline"></span>Submitting…';
+
+    const payload = collectFormData();
+
+    try {
+      // Apps Script requires no-cors for cross-origin POST from local HTML
+      await fetch(webhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      // no-cors means we can't read the response — assume success if no throw
+      document.getElementById('success-modal').classList.add('active');
+    } catch (err) {
+      document.getElementById('error-msg').textContent = 'Network error: ' + err.message + '. Check that your Web App is deployed as "Anyone can access".';
+      document.getElementById('error-modal').classList.add('active');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Submit to Google Sheet';
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('success-modal').classList.remove('active');
+    document.getElementById('error-modal').classList.remove('active');
+  }
+</script>
+</body>
+</html>
